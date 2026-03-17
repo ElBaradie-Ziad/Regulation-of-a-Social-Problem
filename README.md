@@ -1,213 +1,183 @@
-# Priority Queue Implementation
+# Regulation of a Social Problem — Content Moderation via Priority Queue
 
-C project implementing an optimized priority queue data structure with bitmap-based bucket organization for efficient priority tracking (up to 256 priority levels). Includes multi-threaded real-world simulation with Python-based visualization tools.
+A systems-programming project that models the automated moderation of social media content at scale. The core idea: millions of posts are generated daily and each is assigned a **risk score** reflecting its potential harmfulness. A high-performance, bitmap-optimized priority queue acts as the moderation buffer, ensuring that the most harmful content is always processed first.
 
-## Table of Contents
+---
 
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-- [Usage](#usage)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Technical Details](#technical-details)
-- [Team](#team)
+## Project Description
+
+Modern social platforms face an overwhelming volume of user-generated content, much of it requiring human or automated review for harmful material. Reviewing everything equally is impossible — intelligent prioritization is essential.
+
+This project proposes and implements a **priority-based content regulation engine**:
+
+- Each incoming post receives a **risk score** (0–100), computed from a statistical distribution that models real-world content patterns (most content is benign, a minority is highly harmful).
+- The score is mapped to one of **256 priority buckets** using an optimized split strategy: low-risk posts (score ≤ 45) are compressed into the bottom 10% of buckets; high-risk posts get fine-grained resolution across the remaining 90%.
+- A fixed-size buffer (10 million slots, ~120 MB RAM) holds the current moderation backlog. When full, incoming posts only enter if they outrank the lowest-priority item currently stored — ensuring the buffer always holds the most dangerous content.
+- A **6-day simulation** ingests 360 million posts (60M/day) with a 10:1 production-to-consumption ratio, mimicking a real platform under continuous load. Per-bucket statistics are exported to CSV for analysis.
+
+The result is a system that **automatically surfaces the worst content** while gracefully discarding low-risk overflow — a practical model for scalable content regulation.
+
+---
 
 ## Features
 
-- Bitmap-based priority queue with optimized bucket organization
-- Support for up to 256 priority levels
-- Multi-threaded real-world simulation using POSIX threads
-- Automated visualization of simulation data
-- Comprehensive unit test suite
-- Complexity analysis tools
+- Bitmap-based priority queue with O(1) find-max / find-min via `__builtin_clzll` / `__builtin_ctzll`
+- 256 priority levels mapped from continuous risk scores
+- Capacity-capped buffer with automatic eviction of lowest-priority entries
+- 6-day multi-million-post simulation with daily snapshots
+- CSV export of per-bucket counts for each simulated day
+- Python visualization pipeline (matplotlib, pandas, numpy)
+- Unit test suite and complexity analysis scripts
+- Valgrind-clean memory management
+
+---
 
 ## Prerequisites
 
-### Required
+| Dependency | Purpose |
+|---|---|
+| `gcc` / `clang` | Compile C source files |
+| `make` | Build automation |
+| `pthread` (POSIX) | Multi-threaded simulation |
+| Python 3.x | Visualization (optional) |
 
-- C compiler (gcc/clang)
-- Make
-- POSIX threads (pthread) support
-
-### For Visualization
-
-- Python 3.x
-
-**Linux users:** Ensure Python 3 and venv support are installed:
-
-```zsh
-# Debian/Ubuntu
+**Linux (Debian/Ubuntu):**
+```bash
 sudo apt update
-sudo apt install python3 python3-venv python3-pip
-
-# Other distributions: use your package manager (dnf, pacman, etc.)
+sudo apt install gcc make python3 python3-venv python3-pip
 ```
+
+---
 
 ## Getting Started
 
-### 1. Clone and Navigate
+### 1. Clone the repository
 
-```zsh
-cd problem-solving-2
+```bash
+git clone <repo-url>
+cd Regulation-of-a-social-problem
 ```
 
-### 2. Set Up Python Environment (Optional but Recommended)
+### 2. (Optional) Set up the Python visualization environment
 
-```zsh
+```bash
 make env
 ```
 
-This creates a virtual environment and installs dependencies (pandas, matplotlib, numpy).
+### 3. Build
 
-### 3. Build the Project
-
-```zsh
+```bash
 make
 ```
 
+---
+
 ## Usage
 
-### Basic Usage
+### Run the ingestion benchmark
 
-**Build and run the main program:**
+Simulates 90 million post insertions and reports throughput (M ops/sec):
 
-```zsh
+```bash
 make run
-```
-
-**Run directly after building:**
-
-```zsh
+# or
 ./main
 ```
 
-### Real-World Simulation
+### Run the 6-day social media simulation
 
-**Run 30-second simulation with automatic visualization:**
+Processes 360 million posts over 6 simulated days and generates `data_6jours.csv` plus charts in `graphiques_output/`:
 
-```zsh
+```bash
 make real
 ```
 
-This will:
+### Generate visualizations manually
 
-1. Compile [test_situation_reel.c](test_situation_reel.c) with pthread support
-2. Execute the simulation for 30 seconds
-3. Generate `data_6jours.csv` with simulation data
-4. Automatically create visualizations in `graphiques_output/` (requires Python)
-
-**Run simulation directly:**
-
-```zsh
-./test_situation_reel
+```bash
+python3 plot_buckets.py
 ```
 
-### Manual Python Environment Setup
+---
 
-If you prefer manual setup instead of `make env`:
+## Testing & Analysis
 
-```zsh
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+```bash
+make test       # Unit tests: empty queue, push, pop, priority ordering, bitmap ops
+make comp       # Complexity analysis of queue operations
+make valgrind   # Valgrind memory check on main benchmark
+make valgrind-real  # Valgrind memory check on simulation
 ```
 
-## Testing
+---
 
-### Run Unit Tests
+## All Make Targets
 
-```zsh
-make test
-```
+| Command | Description |
+|---|---|
+| `make` / `make all` | Compile the main program |
+| `make run` | Build and run the ingestion benchmark |
+| `make real` | Run 6-day simulation with visualization |
+| `make test` | Run unit test suite |
+| `make comp` | Run complexity analysis |
+| `make env` | Create Python venv and install requirements |
+| `make clean` | Remove generated files |
+| `make re` | Clean and rebuild |
+| `make help` | Show all targets |
+| `make valgrind` | Valgrind on main program |
+| `make valgrind-real` | Valgrind on simulation |
 
-Verifies empty queue operations, insertion, deletion, priority handling, and bitmap operations.
-
-### Run Complexity Analysis
-
-```zsh
-make comp
-```
-
-Analyzes time complexity of priority queue operations using [complexity.sh](complexity.sh).
-
-### Memory Checking with Valgrind
-
-You can use Valgrind to check for memory leaks and errors:
-
-**Check the main program:**
-
-```zsh
-make valgrind
-```
-
-**Check the real-world simulation:**
-
-```zsh
-make valgrind-real
-```
-
-Both commands will run the corresponding binary under Valgrind with leak checking enabled. Make sure Valgrind is installed on your system.
-
-### All Make Targets
-
-| Command              | Description                                 |
-| -------------------- | ------------------------------------------- |
-| `make` or `make all` | Compile the main program                    |
-| `make run`           | Build and execute the main program          |
-| `make real`          | Launch 30s simulation with visualization    |
-| `make test`          | Run unit test suite                         |
-| `make comp`          | Run complexity analysis                     |
-| `make env`           | Create Python venv and install requirements |
-| `make clean`         | Remove generated files                      |
-| `make re`            | Clean and rebuild completely                |
-| `make help`          | Display all available targets               |
-| `make valgrind`      | Run Valgrind on the main program            |
-| `make valgrind-real` | Run Valgrind on the real-world simulation   |
+---
 
 ## Project Structure
 
-```text
+```
 .
-├── main.c                  # Main program entry point
-├── test_situation_reel.c   # Real-world simulation (multi-threaded, 30s)
-├── priority_queue.h        # Priority queue header
-├── priority_queue.c        # Priority queue implementation with bitmap optimization
-├── test.sh                 # Unit test runner script
+├── main.c                  # Ingestion benchmark (90M posts)
+├── test_situation_reel.c   # 6-day simulation (360M posts, CSV output)
+├── priority_queue.h        # Public API
+├── priority_queue.c        # Bitmap priority queue implementation
+├── test.sh                 # Unit test runner
 ├── complexity.sh           # Complexity analysis script
-├── plot_buckets.py         # Python visualization script
+├── plot_buckets.py         # Visualization script
 ├── requirements.txt        # Python dependencies
-└── Makefile                # Build configuration
+└── Makefile                # Build system
 ```
 
-### Generated Files
+**Generated at runtime:**
+- `data_6jours.csv` — per-day, per-bucket post counts
+- `graphiques_output/` — charts produced by `plot_buckets.py`
 
-- `data_6jours.csv` - Simulation output data
-- `graphiques_output/` - Generated visualization graphs
+---
 
 ## Technical Details
 
-### Priority Queue Implementation
+### Priority Queue
 
-- **Algorithm:** Bitmap-based bucket organization
-- **Priority Levels:** Up to 256
-- **Optimization:** Efficient priority tracking using bitmaps
+- **Structure:** Linked lists per priority level, backed by a flat memory pool (no dynamic allocation per item)
+- **Bitmap:** 4 × 64-bit words tracking which buckets are non-empty — max/min lookup is O(1)
+- **Eviction policy:** When the buffer is full, a new post replaces the current minimum-priority item only if it scores higher, ensuring the buffer always holds the top-priority backlog
 
-### Real-World Simulation
+### Risk Score → Bucket Mapping
 
-- **Concurrency:** POSIX threads (pthread)
-- **Duration:** 30 seconds
-- **Output:** CSV data and graphical visualizations
+A two-range split at score 45:
+- Scores 0–45 → buckets 0–25 (low resolution; safe content)
+- Scores 45–100 → buckets 26–255 (high resolution; harmful content)
 
-### Visualization
+This gives much finer discrimination where it matters most.
 
-- **Tools:** Python (pandas, matplotlib, numpy)
-- **Script:** [plot_buckets.py](plot_buckets.py)
-- **Output Directory:** `graphiques_output/`
+### Simulation Model
+
+- **Daily volume:** 60 million posts
+- **Distribution:** 50% near-zero risk (normal, μ=0), 30% mid-range (μ=50), 20% high-risk (μ=95)
+- **Ratio:** 10 posts produced per 1 post consumed (realistic backlog pressure)
+- **Duration:** 6 simulated days
+
+---
 
 ## Team
 
-**Team 3.4:**
+**Team 3.4**
 
 - ALLAOUI Amine
 - AYYILDIZ Yigit
